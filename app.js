@@ -2,21 +2,74 @@
  * app.js — Логика конструктора ТЗ
  *
  * Классы:
- *  State         — единое хранилище данных формы
+ *  Storage       — обёртка над localStorage с защитой от ошибок
+ *  State         — единое хранилище данных формы (с автосохранением)
  *  Validator     — валидация полей
  *  FieldRenderer — рендер полей на основе конфига
- *  StepManager   — управление шагами визарда
+ *  StepManager   — управление шагами визарда (с восстановлением шага)
  *  ResultBuilder — сборка итогового текста задачи
  *  FormWizard    — точка входа, связывает всё вместе
  */
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Storage — обёртка над localStorage
+//
+// Зачем отдельный класс: localStorage может быть недоступен (приватный режим
+// браузера, квота заполнена, политики безопасности). Обёртка изолирует эти
+// ситуации — при любой ошибке приложение продолжает работать, просто без
+// сохранения.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class Storage {
+  static KEY = 'tz_constructor_state';
+
+  /** Сохраняет объект в localStorage */
+  static save(data) {
+    try {
+      localStorage.setItem(this.KEY, JSON.stringify(data));
+    } catch (e) {
+      // Тихо игнорируем — приложение работает без сохранения
+      console.warn('Storage.save: не удалось сохранить состояние', e);
+    }
+  }
+
+  /** Загружает объект из localStorage. Возвращает null если ничего нет. */
+  static load() {
+    try {
+      const raw = localStorage.getItem(this.KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      console.warn('Storage.load: не удалось загрузить состояние', e);
+      return null;
+    }
+  }
+
+  /** Удаляет сохранённое состояние */
+  static clear() {
+    try {
+      localStorage.removeItem(this.KEY);
+    } catch (e) {
+      console.warn('Storage.clear: не удалось очистить состояние', e);
+    }
+  }
+
+  /** Проверяет, есть ли сохранённые данные */
+  static hasSavedData() {
+    return this.load() !== null;
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // State — единое хранилище состояния формы
+//
+// Автоматически сохраняет данные в localStorage при каждом set().
+// При создании можно передать начальные данные (для восстановления).
 // ─────────────────────────────────────────────────────────────────────────────
 
 class State {
-  constructor() {
+  constructor(initialData = null) {
     this._data = {
       taskType:       null,  // 'bug' | 'feature'
       system:         null,  // '1c' | 'site' | 'integration' | 'other'
@@ -25,6 +78,11 @@ class State {
       // Значения полей формы хранятся по id поля из CONFIG.FIELDS
     };
     this._listeners = [];
+
+    // Восстанавливаем данные если переданы (например, из localStorage)
+    if (initialData) {
+      Object.assign(this._data, initialData);
+    }
   }
 
   get(key) {
@@ -34,6 +92,8 @@ class State {
   set(key, value) {
     this._data[key] = value;
     this._listeners.forEach(fn => fn(key, value));
+    // Автосохранение при каждом изменении
+    Storage.save(this._data);
   }
 
   // Получить все данные для генерации результата
@@ -272,9 +332,22 @@ class StepManager {
   constructor(state, fieldRenderer) {
     this.state = state;
     this.fieldRenderer = fieldRenderer;
-    this.history = ['taskType']; // стек пройденных шагов
     this.container = document.getElementById('wizard-container');
     this.progressEl = document.getElementById('progress');
+
+    // Восстанавливаем историю шагов из сохранённого состояния,
+    // либо начинаем с первого шага
+    const savedHistory = state.get('_stepHistory');
+    this.history = (Array.isArray(savedHistory) && savedHistory.length > 0)
+      ? savedHistory
+      : ['taskType'];
+  }
+
+  /**
+   * Сохраняет историю шагов — вызывается при каждой навигации
+   */
+  _persistHistory() {
+    this.state.set('_stepHistory', this.history);
   }
 
   // Текущий шаг
@@ -320,6 +393,7 @@ class StepManager {
     }
 
     this.history.push(nextId);
+    this._persistHistory();
     this._render();
     return true;
   }
@@ -330,6 +404,7 @@ class StepManager {
   back() {
     if (this.history.length <= 1) return;
     this.history.pop();
+    this._persistHistory();
     this._render();
   }
 
@@ -709,14 +784,46 @@ class ResultBuilder {
 
 class FormWizard {
   constructor() {
-    this.state        = new State();
+    // Пытаемся восстановить сохранённое состояние из localStorage.
+    // Если данных нет — начинаем с чистого листа.
+    const savedData = Storage.load();
+    this.state         = new State(savedData);
     this.fieldRenderer = new FieldRenderer(this.state);
-    this.stepManager  = new StepManager(this.state, this.fieldRenderer);
+    this.stepManager   = new StepManager(this.state, this.fieldRenderer);
   }
 
   init() {
+    // Если было сохранённое состояние — показываем баннер восстановления
+    if (Storage.hasSavedData()) {
+      this._showRestoredBanner();
+    }
+
     this.stepManager._render();
     this._bindResultButtons();
+  }
+
+  /**
+   * Показывает одноразовый баннер «Данные восстановлены»
+   */
+  _showRestoredBanner() {
+    const banner = document.createElement('div');
+    banner.className = 'restore-banner';
+    banner.innerHTML = `
+      <span>♻️ Черновик восстановлен — продолжай с того места, где остановился</span>
+      <button class="restore-dismiss" title="Закрыть">✕</button>
+    `;
+
+    const container = document.querySelector('.container');
+    const progressBar = document.querySelector('.progress-bar');
+    container.insertBefore(banner, progressBar);
+
+    // Закрытие по кнопке
+    banner.querySelector('.restore-dismiss').addEventListener('click', () => {
+      banner.remove();
+    });
+
+    // Автоматически скрываем через 5 секунд
+    setTimeout(() => banner.remove(), 5000);
   }
 
   _bindResultButtons() {
@@ -734,12 +841,12 @@ class FormWizard {
       });
     });
 
-    // Кнопка сброса
+    // Кнопка сброса — чистим localStorage и перезапускаем с нуля
     document.getElementById('btn-reset').addEventListener('click', () => {
-      // Пересоздаём состояние и перезапускаем визард
-      this.state        = new State();
+      Storage.clear();
+      this.state         = new State();
       this.fieldRenderer = new FieldRenderer(this.state);
-      this.stepManager  = new StepManager(this.state, this.fieldRenderer);
+      this.stepManager   = new StepManager(this.state, this.fieldRenderer);
 
       document.getElementById('result-screen').style.display = 'none';
       document.getElementById('wizard-container').style.display = 'block';
