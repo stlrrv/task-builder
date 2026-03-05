@@ -1,54 +1,64 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Конструктор ТЗ</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Конструктор ТЗ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@400;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Шапка -->
+      <div class="header">
+        <div class="header-tag">// constructor v2.0</div>
+        <h1>Конструктор <span>ТЗ</span></h1>
+        <a
+          href="https://tkoldis.bitrix24.ru/knowledge/wiki/rukovodstvoporaboteskonstruktoromtz/"
+          class="header-link"
+          target="_blank"
+          >Руководство по заполнению</a
+        >
+        <p class="header-sub">
+          Заполни форму — получи готовый текст задачи для Битрикс24
+        </p>
+      </div>
 
-  <div class="container">
+      <!-- Прогресс-бар -->
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress"></div>
+      </div>
 
-    <!-- Шапка -->
-    <div class="header">
-      <div class="header-tag">// constructor v2.0</div>
-      <h1>Конструктор <span>ТЗ</span></h1>
-      <p class="header-sub">Заполни форму — получи готовый текст задачи для Битрикс24</p>
+      <!-- Сюда рендерятся шаги визарда через StepManager -->
+      <div id="wizard-container"></div>
+
+      <!-- Экран результата (скрыт по умолчанию) -->
+      <div id="result-screen">
+        <div class="result-header">
+          <div class="step-number">Готово!</div>
+          <div class="result-title">Текст задачи для Битрикс24</div>
+          <p class="result-hint">
+            Скопируй текст ниже и вставь в описание задачи. Прикрепи скриншоты и
+            файлы.
+          </p>
+        </div>
+        <div class="result-box">
+          <pre class="result-text" id="result-text"></pre>
+        </div>
+        <div class="result-actions">
+          <button class="btn-copy" id="btn-copy">📋 Скопировать текст</button>
+          <button class="btn-reset" id="btn-reset">↩ Заполнить новое ТЗ</button>
+        </div>
+      </div>
     </div>
 
-    <!-- Прогресс-бар -->
-    <div class="progress-bar">
-      <div class="progress-fill" id="progress"></div>
-    </div>
-
-    <!-- Сюда рендерятся шаги визарда через StepManager -->
-    <div id="wizard-container"></div>
-
-    <!-- Экран результата (скрыт по умолчанию) -->
-    <div id="result-screen">
-      <div class="result-header">
-        <div class="step-number">Готово!</div>
-        <div class="result-title">Текст задачи для Битрикс24</div>
-        <p class="result-hint">Скопируй текст ниже и вставь в описание задачи. Прикрепи скриншоты и файлы.</p>
-      </div>
-      <div class="result-box">
-        <pre class="result-text" id="result-text"></pre>
-      </div>
-      <div class="result-actions">
-        <button class="btn-copy" id="btn-copy">📋 Скопировать текст</button>
-        <button class="btn-reset" id="btn-reset">↩ Заполнить новое ТЗ</button>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Порядок важен: сначала конфиг, потом логика приложения -->
-  <script src="config.js"></script>
-  <script src="app.js"></script>
-
-</body>
+    <!-- Порядок важен: сначала конфиг, потом логика приложения -->
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>
